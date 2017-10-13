@@ -31,26 +31,31 @@ function processCommands() {
         if (!err) {
             switch (result.cmdOption) {
                 case 1:
-                    createEntry((error, data) => {
+                    updateNode((error, data) => {
                         processCommandsAfter();
                     });
                     break;
                 case 2:
-                    retrieveEntry((error, data) => {
+                    createEntry((error, data) => {
                         processCommandsAfter();
                     });
                     break;
                 case 3:
-                    retrieveBlock((error, data) => {
+                    retrieveEntry((error, data) => {
                         processCommandsAfter();
                     });
                     break;
                 case 4:
-                    retrieveLastConfirmedBlock((error, data) => {
+                    retrieveBlock((error, data) => {
                         processCommandsAfter();
                     });
                     break;
                 case 5:
+                    retrieveLastConfirmedBlock((error, data) => {
+                        processCommandsAfter();
+                    });
+                    break;
+                case 6:
                     fs.readFile(protoFile, (err, data) => {
                         if (err) {
                             console.log('error', err);
@@ -60,7 +65,7 @@ function processCommands() {
                         processCommandsAfter();
                     });
                     break;
-                case 6:
+                case 7:
                     done = true;
                     initApi((err, result) => {
                         if (!err) {
@@ -68,7 +73,7 @@ function processCommands() {
                         }
                     });
                     break;
-                case 7:
+                case 8:
                     options.showHelp();
                     async.nextTick(processCommandsAfter);
                     break;
@@ -77,6 +82,57 @@ function processCommands() {
                     break;
             }
         }
+    });
+}
+
+function updateNode(callback) {
+    console.log('updateNode');
+    async.waterfall([
+        function (callback) {
+            prompt.get({
+                name: 'newProtoFile',
+                description: 'Protofile',
+                default: 'message.proto',
+                required: true,
+                conform: (value) => {
+                    return fs.existsSync(value);
+                }
+            }, callback);
+        },
+        function (data, callback) {
+            protoFile = data.newProtoFile;
+            protobuf.load(protoFile, callback);
+        },
+        function (root, callback) {
+            var nested = guessNested(root);
+            if (nested && 2 == nested.length) {
+                appID = nested[0];
+                msgClassDef = root.lookupType(appID + "." + nested[1]);
+                blockchain.App.update({
+                    id: appID,
+                    name: appID,
+                    description: "",
+                    version: 0,
+                    definition: {
+                        format: "proto3",
+                        encoding: encoding,
+                        messages: fs.readFileSync(protoFile).toString(encoding)
+                    }
+                }, callback);
+            } else {
+                callback('could not read message class def from proto file', null);
+            }
+        },
+        function (result, callback) {
+            blockchain.App.read(appID, {}, callback);
+        }
+    ], function (err, result) {
+        if (err) {
+            console.log('error', err);
+        } else {
+            console.log(result);
+        }
+        async.nextTick(callback, err, result);
     });
 }
 
@@ -258,13 +314,13 @@ function promptCmdSchema() {
     return {
         properties: {
             cmdOption: {
-                description: '\n============ MENU ============\n1. Create entry\n2. Retrieve entry\n3. Retrieve block\n4. Retrieve last confirmed block\n5. Show Protocol Buffer Definition\n6. Re-initialize API\n7. Print Command Line Options\n0. Quit\nOption',
+                description: '\n============ MENU ============\n1. Update protocol buffer definition\n2. Create entry\n3. Retrieve entry\n4. Retrieve block\n5. Retrieve last confirmed block\n6. Show Protocol Buffer Definition\n7. Re-initialize API\n8. Print Command Line Options\n0. Quit\nOption',
                 message: 'Invalid Option',
                 type: 'number',
                 default: 0,
                 required: true,
                 conform: (value) => {
-                    return value >= 0 && value <= 7;
+                    return value >= 0 && value <= 8;
                 }
             }
         }
