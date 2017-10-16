@@ -18,7 +18,9 @@ console.log(fs.readFileSync('help.txt').toString());
 prompt.start();
 initApi((err, result) => {
     if (!err) {
-        processCommands();
+        updateNode((error, data) => {
+            processCommands();
+        });
     }
 });
 
@@ -158,7 +160,7 @@ function createEntry(callback) {
         }
     ], function (err, result) {
         if (err) {
-            console.log('error', error);
+            console.log('error', err);
         } else {
             console.log(result);
         }
@@ -188,7 +190,7 @@ function retrieveEntry(callback) {
         }
     ], function (err, result) {
         if (err) {
-            console.log('error', error);
+            console.log('error', err);
         } else {
             console.log('response', ctx.data, 'decoded', result);
         }
@@ -223,7 +225,7 @@ function retrieveLastConfirmedBlock(callback) {
         }
     ], function (err, result) {
         if (err) {
-            console.log('error', error);
+            console.log('error', err);
         } else {
             console.log('response', result);
         }
@@ -249,7 +251,7 @@ function initApi(onDone) {
         }
     ], function (err, root) {
         if (err) {
-            console.log('error', error);
+            console.log('error', err);
         } else {
             var nested = guessNested(root);
             if (nested && 2 == nested.length) {
@@ -271,7 +273,7 @@ function processCommandsAfter() {
         }
     ], function (err, result) {
         if (err) {
-            console.log('error', error);
+            console.log('error', err);
         }
         async.nextTick(processCommands);
     });
