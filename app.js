@@ -283,28 +283,28 @@ function promptInitSchema() {
     return {
         properties: {
             keystorePath: {
-                description: 'Keystore',
+                description: 'the path to your keystore (mastercard developers)',
                 required: true,
                 conform: (value) => {
                     return fs.existsSync(value);
                 }
             },
             storePass: {
-                description: 'Keystore Password',
+                description: 'keystore password (mastercard developers)',
                 required: true,
                 default: 'keystorepassword'
             },
             consumerKey: {
-                description: 'Consumer Key',
+                description: 'consumer key (mastercard developers)',
                 required: true
             },
             keyAlias: {
-                description: 'Key Alias',
+                description: 'key alias (mastercard developers)',
                 required: true,
                 default: 'keyalias'
             },
             protoFile: {
-                description: 'Protobuf File',
+                description: 'the path to the protobuf File',
                 required: true,
                 default: 'message.proto'
             }
