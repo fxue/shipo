@@ -1,5 +1,5 @@
 syntax = "proto3";
-package P001;
+package SHIP;
 
 option java_package = "com.mastercard.blockchain";
 option java_outer_classname = "BarebonesProtocolBuffer";

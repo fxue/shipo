@@ -3,12 +3,28 @@ var blockchain = require('mastercard-blockchain');
 var MasterCardAPI = blockchain.MasterCardAPI;
 
 const async = require('async'), encoding = 'base64', fs = require('fs');
-var prompt = require('prompt'), options = createOptions();
+var prompt = require('prompt');
 
 var protobuf = require("protobufjs");
+const express = require('express')
+const app = express()
+const port = 3000
 
-var argv = options.argv;
-prompt.override = argv;
+app.put('/entry', (request, response) => {
+  createEntry(request.query.content,(err,data) => {
+     console.log(JSON.stringify(data))
+     response.send(JSON.stringify(data))
+  }
+  )
+})
+
+app.get('/entry', (request, response) => {
+  retrieveEntry(request.query.hash,(err,data) => {
+     console.log(JSON.stringify(data))
+     response.send(JSON.stringify(data))
+  }
+  )
+})
 
 var appID = null;
 var msgClassDef = null;
@@ -17,75 +33,13 @@ var protoFile = null;
 console.log(fs.readFileSync('help.txt').toString());
 prompt.start();
 initApi((err, result) => {
-    if (!err) {
-        updateNode((error, data) => {
-            processCommands();
-        });
+  app.listen(port, (err) => {
+    if (err) {
+      return console.log('something bad happened', err)
     }
+    console.log(`server is listening on ${port}`)
+  })
 });
-
-function processCommands() {
-    async.waterfall([
-        function (callback) {
-            prompt.get(promptCmdSchema(), callback);
-        }
-    ], function (err, result) {
-        if (!err) {
-            switch (result.cmdOption) {
-                case 1:
-                    updateNode((error, data) => {
-                        processCommandsAfter();
-                    });
-                    break;
-                case 2:
-                    createEntry((error, data) => {
-                        processCommandsAfter();
-                    });
-                    break;
-                case 3:
-                    retrieveEntry((error, data) => {
-                        processCommandsAfter();
-                    });
-                    break;
-                case 4:
-                    retrieveBlock((error, data) => {
-                        processCommandsAfter();
-                    });
-                    break;
-                case 5:
-                    retrieveLastConfirmedBlock((error, data) => {
-                        processCommandsAfter();
-                    });
-                    break;
-                case 6:
-                    fs.readFile(protoFile, (err, data) => {
-                        if (err) {
-                            console.log('error', err);
-                        } else {
-                            console.log(data.toString());
-                        }
-                        processCommandsAfter();
-                    });
-                    break;
-                case 7:
-                    done = true;
-                    initApi((err, result) => {
-                        if (!err) {
-                            processCommandsAfter();
-                        }
-                    });
-                    break;
-                case 8:
-                    options.showHelp();
-                    async.nextTick(processCommandsAfter);
-                    break;
-                default:
-                    console.log('Goodbye');
-                    break;
-            }
-        }
-    });
-}
 
 function updateNode(callback) {
     console.log('updateNode');
@@ -138,14 +92,11 @@ function updateNode(callback) {
     });
 }
 
-function createEntry(callback) {
+function createEntry(content,callback) {
     console.log('createEntry');
     async.waterfall([
         function (callback) {
-            prompt.get(['textEntry'], callback);
-        },
-        function (data, callback) {
-            var payload = { text: data.textEntry };
+            var payload = { text: content };
             var errMsg = msgClassDef.verify(payload);
             if (errMsg) {
                 callback(errMsg, null);
@@ -168,14 +119,13 @@ function createEntry(callback) {
     });
 }
 
-function retrieveEntry(callback) {
+
+function retrieveEntry(hash,callback) {
     console.log('retrieveEntry');
     var ctx = {};
     async.waterfall([
-        function (callback) {
-            prompt.get(['hash'], callback);
-        },
-        function (data, callback) {
+        function ( callback) {
+            data = {"hash": hash}
             blockchain.TransactionEntry.read("", { "hash": data.hash }, callback);
         },
         function (data, callback) {
@@ -194,56 +144,29 @@ function retrieveEntry(callback) {
         } else {
             console.log('response', ctx.data, 'decoded', result);
         }
-        async.nextTick(callback, err, ctx.data, result);
-    });
-}
-
-function retrieveBlock(callback) {
-    console.log('retrieveBlock');
-    async.waterfall([
-        function (callback) {
-            prompt.get(['blockId'], callback);
-        },
-        function (data, callback) {
-            blockchain.Block.read(data.blockId, {}, callback);
-        }
-    ], function (err, result) {
-        if (err) {
-            console.log('error', err);
-        } else {
-            console.log('response', result);
-        }
         async.nextTick(callback, err, result);
     });
 }
 
-function retrieveLastConfirmedBlock(callback) {
-    console.log('retrieveLastConfirmedBlock');
-    async.waterfall([
-        function (callback) {
-            blockchain.Block.list({}, callback);
-        }
-    ], function (err, result) {
-        if (err) {
-            console.log('error', err);
-        } else {
-            console.log('response', result);
-        }
-        async.nextTick(callback, err, result);
-    });
-}
 
 function initApi(onDone) {
     console.log('initializing');
     async.waterfall([
-        function (callback) {
-            prompt.get(promptInitSchema(), callback);
-        },
-        function (result, callback) {
-            var authentication = new MasterCardAPI.OAuth(result.consumerKey, result.keystorePath, result.keyAlias, result.storePass);
+        function ( callback) {
+          var result = {
+              "consumerKey" : "EjfzB6vGe8t39QaaxshrjxLnUBn4Xfx8l3RFdL2Xbcf313bd!d4a6543b3ea94588baa024138747b8be0000000000000000",
+              "keystorePath" : "/Users/fei/Downloads/mastercard-1508622152-sandbox.p12",
+              "storePass" : "keystorepassword",
+              "keyAlias" : "keyalias",
+              "protoFile" : "message.proto"
+            }
+            console.log(result)
+            var authentication = new MasterCardAPI.OAuth(
+                result.consumerKey, result.keystorePath, 
+                result.keyAlias, result.storePass);
             MasterCardAPI.init({
                 sandbox: true,
-                debug: argv.verbosity,
+                //debug: argv.verbosity,
                 authentication: authentication
             });
             protoFile = result.protoFile;
@@ -253,6 +176,7 @@ function initApi(onDone) {
         if (err) {
             console.log('error', err);
         } else {
+            console.log("auth done")
             var nested = guessNested(root);
             if (nested && 2 == nested.length) {
                 appID = nested[0];
@@ -261,104 +185,12 @@ function initApi(onDone) {
             } else {
                 console.log('could not read message class def from', protoFile);
             }
+            console.log("auth done")
         }
         async.nextTick(onDone, err, appID);
     });
 }
 
-function processCommandsAfter() {
-    async.waterfall([
-        function (callback) {
-            prompt.get({ properties: { enter: { description: 'press enter to continue', required: false } } }, callback);
-        }
-    ], function (err, result) {
-        if (err) {
-            console.log('error', err);
-        }
-        async.nextTick(processCommands);
-    });
-}
-
-function promptInitSchema() {
-    return {
-        properties: {
-            keystorePath: {
-                description: 'the path to your keystore (mastercard developers)',
-                required: true,
-                conform: (value) => {
-                    return fs.existsSync(value);
-                }
-            },
-            storePass: {
-                description: 'keystore password (mastercard developers)',
-                required: true,
-                default: 'keystorepassword'
-            },
-            consumerKey: {
-                description: 'consumer key (mastercard developers)',
-                required: true
-            },
-            keyAlias: {
-                description: 'key alias (mastercard developers)',
-                required: true,
-                default: 'keyalias'
-            },
-            protoFile: {
-                description: 'the path to the protobuf File',
-                required: true,
-                default: 'message.proto'
-            }
-        }
-    };
-}
-
-function promptCmdSchema() {
-    return {
-        properties: {
-            cmdOption: {
-                description: '\n============ MENU ============\n1. Update protocol buffer definition\n2. Create entry\n3. Retrieve entry\n4. Retrieve block\n5. Retrieve last confirmed block\n6. Show Protocol Buffer Definition\n7. Re-initialize API\n8. Print Command Line Options\n0. Quit\nOption',
-                message: 'Invalid Option',
-                type: 'number',
-                default: 0,
-                required: true,
-                conform: (value) => {
-                    return value >= 0 && value <= 8;
-                }
-            }
-        }
-    };
-}
-
-function createOptions() {
-    return require('yargs')
-        .options({
-            'consumerKey': {
-                alias: 'ck',
-                description: 'consumer key (mastercard developers)'
-            },
-            'keystorePath': {
-                alias: 'kp',
-                description: 'the path to your keystore (mastercard developers)'
-            },
-            'keyAlias': {
-                alias: 'ka',
-                description: 'key alias (mastercard developers)'
-            },
-            'storePass': {
-                alias: 'sp',
-                description: 'keystore password (mastercard developers)'
-            },
-            'protoFile': {
-                alias: 'pf',
-                description: 'protobuf file'
-            },
-            'verbosity': {
-                alias: 'v',
-                default: false,
-                description: 'log mastercard developers sdk to console'
-            }
-        });
-}
 
 function getProperties(obj) {
     var ret = [];
